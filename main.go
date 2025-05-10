@@ -24,9 +24,17 @@ func getServerPort() string {
 }
 
 func startServer(mux *http.ServeMux) {
+	certFile := os.Getenv("SSL_CERT_FILE")
+	keyFile := os.Getenv("SSL_KEY_FILE")
+
 	addr := "0.0.0.0:" + getServerPort()
 	log.Printf("listening on %s...\n", addr)
-	http.ListenAndServe(addr, mux)
+
+	if certFile != "" && keyFile != "" {
+		http.ListenAndServeTLS(addr, certFile, keyFile, mux)
+	} else {
+		http.ListenAndServe(addr, mux)
+	}
 }
 
 type Queries struct {
@@ -75,8 +83,13 @@ func main() {
 	sourcesHandler := WrappedHandler(db, &qs, SourcesResponseHandler)
 
 	mux.Handle("/user-sources/{user}/", sourcesHandler)
+	mux.Handle("/user-sources/{user}", sourcesHandler)
+
+	mux.Handle("/source-articles-paged/{source}/{page}/", sourceArticlesHandler)
 	mux.Handle("/source-articles-paged/{source}/{page}", sourceArticlesHandler)
+
 	mux.Handle("/search-user-articles-paged/{user}/{search}/{page}/", searchUserArticlesHandler)
+	mux.Handle("/search-user-articles-paged/{user}/{search}/{page}", searchUserArticlesHandler)
 
 	startServer(mux)
 }
@@ -94,11 +107,11 @@ type Source struct {
 }
 
 type ArticlesResponse struct {
-	Results []Article `json:"response"`
+	Results []Article `json:"results"`
 }
 
 type SourcesResponse struct {
-	Results []Source `json:"response"`
+	Results []Source `json:"results"`
 }
 
 func parseReqInt(value string, fallback_value string, fallback_result int, min_result int, max_result int) int {
